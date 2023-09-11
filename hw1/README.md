@@ -1,24 +1,20 @@
-## Setup
-
-## Results reproducability
-To reproduce the same results with my results in the report pdf use the following commands:
-Command for table 1:
+## Results reproducibility
+To reproduce the same results as my results in the report pdf use the following commands:
+The command for table 1:
 
 ```
 python cs285/scripts/run_hw1.py --expert_policy_file cs285/policies/experts/Ant.pkl  --env_name Ant-v4 --exp_name bc_ant --n_iter 1 --expert_data cs285/expert_data/expert_data_Ant-v4.pkl --video_log_freq -1 --eval_batch_size 100000
+
+python cs285/scripts/run_hw1.py --expert_policy_file cs285/policies/experts/Walker2d.pkl --env_name Walker2d-v4 --exp_name bc_Walker2d --n_iter 1 --expert_data cs285/expert_data/expert_data_Walker2d-v4.pkl  --video_log_freq -1 --eval_batch_size 100000
 ```
-and 
-```python cs285/scripts/run_hw1.py --expert_policy_file cs285/policies/experts/Walker2d.pkl --env_name Walker2d-v4 --exp_name bc_Walker2d --n_iter 1 --expert_data cs285/expert_data/expert_data_Walker2d-v4.pkl  --video_log_freq -1 --eval_batch_size 100000
-```
-Command for Figure 2 & 3:
+Command for Figures 2 & 3:
 ```
 python cs285/scripts/run_hw1.py --expert_policy_file cs285/policies/experts/Ant.pkl --env_name Ant-v4 --exp_name dagger_ant --n_iter 10 --do_dagger --expert_data cs285/expert_data/expert_data_Ant-v4.pkl --video_log_freq -1 --eval_batch_size 100000
-```
-and
-```
+
 python cs285/scripts/run_hw1.py --expert_policy_file cs285/policies/experts/Walker2d.pkl --env_name Walker2d-v4 --exp_name dagger_walker2d --n_iter 10 --do_dagger --expert_data cs285/expert_data/expert_data_Walker2d-v4.pkl --video_log_freq -1 --eval_batch_size 100000
 ```
 
+## Setup
 You can run this code on your own machine or on Google Colab. 
 
 1. **Local option:** If you choose to run locally, you will need to install MuJoCo and some Python packages; see [installation.md](installation.md) for instructions.
