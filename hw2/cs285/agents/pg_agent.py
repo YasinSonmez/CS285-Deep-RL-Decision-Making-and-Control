@@ -196,13 +196,3 @@ class PGAgent(nn.Module):
                 discounted_rewards[t] = rewards[t] + self.gamma*discounted_rewards[t+1]
 
         return discounted_rewards
-    
-"""
-for seed in $(seq 1 5); do
-python3.10 cs285/scripts/run_hw2.py --env_name InvertedPendulum-v4 -n 500 \
---exp_name pendulum_default_s$seed \
--rtg --use_baseline -na \
---batch_size 1000 --discount 0.98 \
---seed $seed -eb 5000 -lr 1e-2
-done
-"""
