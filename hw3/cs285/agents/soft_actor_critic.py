@@ -186,18 +186,18 @@ class SoftActorCritic(nn.Module):
         with torch.no_grad():
             # TODO(student)
             # Sample from the actor
-            next_action_distribution: torch.distributions.Distribution = ...
-            next_action = ...
+            next_action_distribution: torch.distributions.Distribution = self.actor(next_obs)
+            next_action = next_action_distribution.sample()
 
             # Compute the next Q-values for the sampled actions
-            next_qs = ...
+            next_qs = self.critic(next_obs, next_action)
 
             # Handle Q-values from multiple different target critic networks (if necessary)
             # (For double-Q, clip-Q, etc.)
             next_qs = self.q_backup_strategy(next_qs)
 
             # Compute the target Q-value
-            target_values: torch.Tensor = ...
+            target_values: torch.Tensor = reward + (1-done.int())*self.discount*next_qs
 
             next_qs = self.q_backup_strategy(next_qs)
 
@@ -213,11 +213,11 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Update the critic
         # Predict Q-values
-        q_values = ...
+        q_values = self.critic(obs, action)
         assert q_values.shape == (self.num_critic_networks, batch_size), q_values.shape
 
         # Compute loss
-        loss: torch.Tensor = ...
+        loss: torch.Tensor = self.critic_loss(q_values, target_values)
 
         self.critic_optimizer.zero_grad()
         loss.backward()
@@ -242,11 +242,11 @@ class SoftActorCritic(nn.Module):
         batch_size = obs.shape[0]
 
         # TODO(student): Generate an action distribution
-        action_distribution: torch.distributions.Distribution = ...
+        action_distribution: torch.distributions.Distribution = self.actor(obs)
 
         with torch.no_grad():
             # TODO(student): draw num_actor_samples samples from the action distribution for each batch element
-            action = ...
+            action = action_distribution.sample(self.num_actor_samples)
             assert action.shape == (
                 self.num_actor_samples,
                 batch_size,
@@ -254,7 +254,7 @@ class SoftActorCritic(nn.Module):
             ), action.shape
 
             # TODO(student): Compute Q-values for the current state-action pair
-            q_values = ...
+            q_values = self.critic(obs, action)
             assert q_values.shape == (
                 self.num_critic_networks,
                 self.num_actor_samples,
@@ -337,15 +337,23 @@ class SoftActorCritic(nn.Module):
 
         critic_infos = []
         # TODO(student): Update the critic for num_critic_upates steps, and add the output stats to critic_infos
-
+        for _ in range(self.num_critic_updates):
+            self.update_critic(observations, actions, rewards, next_observations,
+                            dones)
         # TODO(student): Update the actor
-        actor_info = ...
+        actor_info = ... #self.update_actor(observations)
 
         # TODO(student): Perform either hard or soft target updates.
         # Relevant variables:
         #  - step
         #  - self.target_update_period (None when using soft updates)
         #  - self.soft_target_update_rate (None when using hard updates)
+        if self.target_update_period is not None:
+            if step % self.target_update_period == 0:
+                self.update_target_critic()
+        else:
+            self.soft_update_target_critic(self.soft_target_update_rate)
+
 
         # Average the critic info over all of the steps
         critic_info = {
