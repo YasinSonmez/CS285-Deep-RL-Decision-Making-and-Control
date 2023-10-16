@@ -91,9 +91,12 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         if step >= config["training_starts"]:
             # TODO(student): Sample a batch of config["batch_size"] transitions from the replay buffer
             batch = replay_buffer.sample(config["batch_size"])
-            update_info = update_info = agent.update(batch['observations'], batch['actions'], 
-                                       batch['rewards'], batch['next_observations'], 
-                                       batch['dones'], step)
+            update_info = update_info = agent.update(ptu.from_numpy(batch['observations']),
+                                                    ptu.from_numpy(batch['actions']),
+                                                    ptu.from_numpy(batch['rewards']),
+                                                    ptu.from_numpy(batch['next_observations']),
+                                                    ptu.from_numpy(batch['dones']), 
+                                                    step)
 
             # Logging
             update_info["actor_lr"] = agent.actor_lr_scheduler.get_last_lr()[0]

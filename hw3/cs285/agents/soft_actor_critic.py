@@ -190,7 +190,7 @@ class SoftActorCritic(nn.Module):
             next_action = next_action_distribution.sample()
 
             # Compute the next Q-values for the sampled actions
-            next_qs = self.critic(next_obs, next_action)
+            next_qs = self.target_critic(next_obs, next_action)
 
             # Handle Q-values from multiple different target critic networks (if necessary)
             # (For double-Q, clip-Q, etc.)
@@ -208,8 +208,8 @@ class SoftActorCritic(nn.Module):
 
             if self.use_entropy_bonus and self.backup_entropy:
                 # TODO(student): Add entropy bonus to the target values for SAC
-                next_action_entropy = ...
-                next_qs += ...
+                next_action_entropy = self.entropy(next_action_distribution)
+                next_qs += self.temperature * next_action_entropy
 
         # TODO(student): Update the critic
         # Predict Q-values
@@ -236,7 +236,12 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Compute the entropy of the action distribution.
         # Note: Think about whether to use .rsample() or .sample() here...
-        return ...
+        samples = action_distribution.rsample()
+
+        # Compute the entropy based on the generated samples
+        logp = action_distribution.log_prob(samples)
+        entropy_per_batch = -logp
+        return entropy_per_batch
 
     def actor_loss_reinforce(self, obs: torch.Tensor):
         batch_size = obs.shape[0]
@@ -246,13 +251,14 @@ class SoftActorCritic(nn.Module):
 
         with torch.no_grad():
             # TODO(student): draw num_actor_samples samples from the action distribution for each batch element
-            action = action_distribution.sample(self.num_actor_samples)
+            action = action_distribution.sample(torch.Size([self.num_actor_samples]))
             assert action.shape == (
                 self.num_actor_samples,
                 batch_size,
                 self.action_dim,
             ), action.shape
-
+            obs = obs.repeat((self.num_actor_samples, 1, 1))
+            #print(action.shape, obs.shape)
             # TODO(student): Compute Q-values for the current state-action pair
             q_values = self.critic(obs, action)
             assert q_values.shape == (
@@ -267,8 +273,8 @@ class SoftActorCritic(nn.Module):
 
         # Do REINFORCE: calculate log-probs and use the Q-values
         # TODO(student)
-        log_probs = ...
-        loss = ...
+        log_probs = action_distribution.log_prob(action)
+        loss = -torch.mean(q_values*log_probs)
 
         return loss, torch.mean(self.entropy(action_distribution))
 
@@ -280,13 +286,15 @@ class SoftActorCritic(nn.Module):
 
         # TODO(student): Sample actions
         # Note: Think about whether to use .rsample() or .sample() here...
-        action = ...
+        action = action_distribution.rsample(torch.Size([self.num_actor_samples]))
 
         # TODO(student): Compute Q-values for the sampled state-action pair
-        q_values = ...
+        obs = obs.repeat((self.num_actor_samples, 1, 1))
+        q_values = self.critic(obs, action)
+        q_values = torch.mean(q_values, axis=0)
 
         # TODO(student): Compute the actor loss
-        loss = ...
+        loss = -torch.mean(q_values)
 
         return loss, torch.mean(self.entropy(action_distribution))
 
@@ -338,10 +346,10 @@ class SoftActorCritic(nn.Module):
         critic_infos = []
         # TODO(student): Update the critic for num_critic_upates steps, and add the output stats to critic_infos
         for _ in range(self.num_critic_updates):
-            self.update_critic(observations, actions, rewards, next_observations,
-                            dones)
+            critic_infos.append(self.update_critic(observations, actions, rewards, next_observations,
+                            dones))
         # TODO(student): Update the actor
-        actor_info = ... #self.update_actor(observations)
+        actor_info = self.update_actor(observations)
 
         # TODO(student): Perform either hard or soft target updates.
         # Relevant variables:
