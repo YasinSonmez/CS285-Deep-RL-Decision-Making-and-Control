@@ -196,10 +196,7 @@ class SoftActorCritic(nn.Module):
             # (For double-Q, clip-Q, etc.)
             next_qs = self.q_backup_strategy(next_qs)
 
-            # Compute the target Q-value
-            target_values: torch.Tensor = reward + (1-done.int())*self.discount*next_qs
-
-            next_qs = self.q_backup_strategy(next_qs)
+            #next_qs = self.q_backup_strategy(next_qs)
 
             assert next_qs.shape == (
                 self.num_critic_networks,
@@ -210,6 +207,9 @@ class SoftActorCritic(nn.Module):
                 # TODO(student): Add entropy bonus to the target values for SAC
                 next_action_entropy = self.entropy(next_action_distribution)
                 next_qs += self.temperature * next_action_entropy
+                
+            # Compute the target Q-value
+            target_values: torch.Tensor = reward + (1-done.int())*self.discount*next_qs
 
         # TODO(student): Update the critic
         # Predict Q-values
