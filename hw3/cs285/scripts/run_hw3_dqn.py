@@ -62,7 +62,7 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         frame_history_len = env.observation_space.shape[0]
         assert frame_history_len == 4, "only support 4 stacked frames"
         replay_buffer = MemoryEfficientReplayBuffer(
-            frame_history_len=frame_history_len
+            frame_history_len=frame_history_len, capacity=100000
         )
     elif len(env.observation_space.shape) == 1:
         stacked_frames = False
