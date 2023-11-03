@@ -119,10 +119,10 @@ def run_training_loop(
         if itr == 0:
             # TODO(student): collect at least config["initial_batch_size"] transitions with a random policy
             # HINT: Use `utils.RandomPolicy` and `utils.sample_trajectories`
-            trajs, envsteps_this_batch = ...
+            trajs, envsteps_this_batch = utils.sample_trajectories(env, utils.RandomPolicy(env), config["initial_batch_size"], config["initial_batch_size"])
         else:
             # TODO(student): collect at least config["batch_size"] transitions with our `actor_agent`
-            trajs, envsteps_this_batch = ...
+            trajs, envsteps_this_batch = utils.sample_trajectories(env, actor_agent, config["initial_batch_size"], config["initial_batch_size"])
 
         total_envsteps += envsteps_this_batch
         logger.log_scalar(total_envsteps, "total_envsteps", itr)
@@ -165,6 +165,10 @@ def run_training_loop(
             # TODO(student): train the dynamics models
             # HINT: train each dynamics model in the ensemble with a *different* batch of transitions!
             # Use `replay_buffer.sample` with config["train_batch_size"].
+            for i in range(len(mb_agent.dynamics_models)):
+                sample = replay_buffer.sample(config["train_batch_size"])
+                step_losses.append(mb_agent.update(i, sample['observations'], sample['actions'], sample['next_observations']))
+            
             all_losses.append(np.mean(step_losses))
 
         # on iteration 0, plot the full learning curve

@@ -9,8 +9,8 @@ from typing import Optional
 def mpc_config(
     env_name: str,
     exp_name: str,
-    hidden_size: int = 128,
-    num_layers: int = 3,
+    hidden_size: int = 256,
+    num_layers: int = 4,
     learning_rate: float = 1e-3,
     ensemble_size: int = 3,
     mpc_horizon: int = 10,
