@@ -187,7 +187,7 @@ class ModelBasedAgent(nn.Module):
 
             # TODO(student): predict the next_obs for each rollout
             # HINT: use self.get_dynamics_predictions
-            next_obs = np.array([self.get_dynamics_predictions(i, obs[i], acs) for i in range(self.ensemble_size)])
+            next_obs = np.array([self.get_dynamics_predictions(j, obs[j], acs) for j in range(self.ensemble_size)])
             assert next_obs.shape == (
                 self.ensemble_size,
                 self.mpc_num_action_sequences,
@@ -245,24 +245,22 @@ class ModelBasedAgent(nn.Module):
                     assert rewards.shape == (self.mpc_num_action_sequences,)
                     elite_idx = np.argsort(rewards)[-J:]
                     elite_action_sequences = action_sequences[elite_idx]
-                    elite_mean = elite_action_sequences.mean(axis=0).flatten()
-                    elite_std = elite_action_sequences.std(axis=0).flatten()
-                    if rewards[elite_idx[-1]] > best_reward:
-                        best_reward = rewards[elite_idx[-1]]
-                        best_sequence = action_sequences[elite_idx[-1]][0]
+                    elite_mean = elite_action_sequences.mean(axis=0)
+                    elite_std = elite_action_sequences.std(axis=0)
                 else:
-                    action_sequences = np.random.multivariate_normal(elite_mean, np.diag(elite_std**2), self.mpc_num_action_sequences)
-                    action_sequences = action_sequences.reshape(self.mpc_num_action_sequences, self.mpc_horizon, self.ac_dim)
+                    action_sequences = np.array([np.random.multivariate_normal(elite_mean[j], np.diag(elite_std[j]**2), self.mpc_num_action_sequences) for j in range(self.mpc_horizon)])
+                    #action_sequences = np.random.normal(elite_mean, elite_std, self.mpc_num_action_sequences)
+                    #action_sequences = action_sequences.reshape(self.mpc_num_action_sequences, self.mpc_horizon, self.ac_dim)
+                    action_sequences = action_sequences.transpose(1,0,2)
+                    #print(action_sequences.shape)
+
                     rewards = self.evaluate_action_sequences(obs, action_sequences)
                     assert rewards.shape == (self.mpc_num_action_sequences,)
                     elite_idx = np.argsort(rewards)[-J:]
                     elite_action_sequences = action_sequences[elite_idx]
-                    elite_mean = elite_action_sequences.mean(axis=0).flatten()
-                    elite_std = elite_action_sequences.std(axis=0).flatten()
-                    if rewards[elite_idx[-1]] > best_reward:
-                        best_reward = rewards[elite_idx[-1]]
-                        best_sequence = action_sequences[elite_idx[-1]][0]
+                    elite_mean = self.cem_alpha * elite_action_sequences.mean(axis=0) + (1-self.cem_alpha) * elite_mean
+                    elite_std = self.cem_alpha * elite_action_sequences.std(axis=0)+ (1-self.cem_alpha) * elite_std
 
-                return best_sequence
+            return elite_mean[0]
         else:
             raise ValueError(f"Invalid MPC strategy '{self.mpc_strategy}'")
