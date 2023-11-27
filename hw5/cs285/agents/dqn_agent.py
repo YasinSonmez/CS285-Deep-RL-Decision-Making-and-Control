@@ -11,7 +11,8 @@ import cs285.infrastructure.pytorch_util as ptu
 class DQNAgent(nn.Module):
     def __init__(
         self,
-        observation_shape: Sequence[int], num_actions: int,
+        observation_shape: Sequence[int],
+        num_actions: int,
         make_critic: Callable[[Tuple[int, ...], int], nn.Module],
         make_optimizer: Callable[[torch.nn.ParameterList], torch.optim.Optimizer],
         make_lr_schedule: Callable[
@@ -40,17 +41,25 @@ class DQNAgent(nn.Module):
 
         self.update_target_critic()
 
-    def get_action(self, observation: np.ndarray, epsilon: float = 0.0) -> int:
+    def get_action(self, observation: np.ndarray, epsilon: float = 0.02) -> int:
         """
         Used for evaluation.
         """
         observation = ptu.from_numpy(np.asarray(observation))[None]
 
         # TODO(student): get the action from the critic using an epsilon-greedy strategy
-        raise NotImplementedError
+        """
         action = ...
+        """
+        if torch.rand(1) < epsilon:
+            action = torch.randint(self.num_actions, ())
+        else:
+            qa_values: torch.Tensor = self.critic(observation)
+            action = qa_values.argmax(dim=-1)
+        # ENDTODO
 
         return ptu.to_numpy(action).squeeze(0).item()
+
 
     def compute_critic_loss(
         self,
@@ -70,20 +79,38 @@ class DQNAgent(nn.Module):
         """
 
         # TODO(student): paste in your code from HW3, and make sure the return values exist
-        raise NotImplementedError
-        with torch.no_grad():
-            next_qa_values = ...
+        (batch_size,) = reward.shape
+        next_qa_values = self.target_critic(next_obs)
+        assert next_qa_values.shape == (
+            batch_size,
+            self.num_actions,
+        ), next_qa_values.shape
 
-            if self.use_double_q:
-                next_action = ...
-            else:
-                next_action = ...
+        if self.use_double_q:
+            # Double-Q
+            doubleq_next_qa_values: torch.Tensor = self.critic(next_obs)
+            doubleq_next_action = doubleq_next_qa_values.argmax(dim=-1)
+            next_q_values = torch.gather(next_qa_values, 1, doubleq_next_action.unsqueeze(1)).squeeze(1)
+        else:
+            # Standard
+            next_q_values, _ = next_qa_values.max(dim=-1)
 
-            next_q_values = ...
-            assert next_q_values.shape == (batch_size,), next_q_values.shape
+        target_values: torch.Tensor = reward + self.discount * next_q_values * (
+            1 - done.float()
+        )
+        assert target_values.shape == (batch_size,), target_values.shape
 
-            target_values = ...
-            assert target_values.shape == (batch_size,), target_values.shape
+        # Predict Q-values
+        qa_values = self.critic(obs)
+        assert qa_values.shape == (batch_size, self.num_actions), qa_values.shape
+
+        # Select Q-values for the actions that were actually taken
+        q_values = torch.gather(qa_values, 1, action.unsqueeze(1)).squeeze(1)
+        assert q_values.shape == (batch_size,), q_values.shape
+
+        # Compute loss
+        loss: torch.Tensor = self.critic_loss(q_values, target_values)
+        # ENDTODO
 
         return (
             loss,
@@ -107,19 +134,32 @@ class DQNAgent(nn.Module):
         done: torch.Tensor,
     ) -> dict:
         """Update the DQN critic, and return stats for logging."""
-        loss, metrics, _ = self.compute_critic_loss(obs, action, reward, next_obs, done)
+
+        loss, metrics, variables = self.compute_critic_loss(
+            obs,
+            action,
+            reward,
+            next_obs,
+            done,
+        )
+        q_values = variables['q_values']
+        target_values = metrics['target_values']
 
         self.critic_optimizer.zero_grad()
         loss.backward()
         grad_norm = torch.nn.utils.clip_grad.clip_grad_norm_(
             self.critic.parameters(), self.clip_grad_norm or float("inf")
         )
-        metrics["grad_norm"] = grad_norm.item()
         self.critic_optimizer.step()
 
         self.lr_scheduler.step()
 
-        return metrics
+        return {
+            "critic_loss": loss.item(),
+            "q_values": q_values.mean().item(),
+            "target_values": target_values,
+            "grad_norm": grad_norm.item(),
+        }
 
     def update_target_critic(self):
         self.target_critic.load_state_dict(self.critic.state_dict())
@@ -136,6 +176,11 @@ class DQNAgent(nn.Module):
         """
         Update the DQN agent, including both the critic and target.
         """
-        # TODO(student): paste in your code from HW3
+        # TODO(student): update the critic, and the target if needed
+        critic_stats = self.update_critic(obs, action, reward, next_obs, done)
+
+        if step % self.target_update_period == 0:
+            self.update_target_critic()
+        # ENDTODO
 
         return critic_stats

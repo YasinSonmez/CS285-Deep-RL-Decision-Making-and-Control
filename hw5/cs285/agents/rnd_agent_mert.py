@@ -28,10 +28,10 @@ class RNDAgent(DQNAgent):
         )
         self.rnd_weight = rnd_weight
 
-        self.rnd_net = make_rnd_network(observation_shape)
-        self.rnd_target_net = make_target_rnd_network(observation_shape)
-
-        self.rnd_target_net.apply(init_network)
+        self.rnd_net = make_rnd_network(observation_shape) ## param by phi
+        self.rnd_target_net = make_target_rnd_network(observation_shape) ## param by theta 
+        ## the exploitation critic is self.critic and target critic is self.target_critic
+        self.rnd_target_net.apply(init_network) 
 
         # Freeze target network
         for p in self.rnd_target_net.parameters():
@@ -41,13 +41,15 @@ class RNDAgent(DQNAgent):
             self.rnd_net.parameters()
         )
 
+        self.loss_func = nn.MSELoss() 
+
     def update_rnd(self, obs: torch.Tensor) -> torch.Tensor:
         """
         Update the RND network using the observations.
         """
         # TODO(student): update the RND network
-        loss_fn = torch.nn.MSELoss()
-        loss = loss_fn(self.rnd_net(obs), self.rnd_target_net(obs))
+        
+        loss = self.loss_func(self.rnd_target_net(obs),self.rnd_net(obs))
 
         self.rnd_optimizer.zero_grad()
         loss.backward()
@@ -66,10 +68,12 @@ class RNDAgent(DQNAgent):
     ):
         with torch.no_grad():
             # TODO(student): Compute RND bonus for batch and modify rewards
-            rnd_error = torch.norm(self.rnd_net(observations) - self.rnd_target_net(observations), p=2, dim=1)
-            assert rnd_error.shape == rewards.shape, (rnd_error.shape,rewards.shape)
-            rewards = rewards + self.rnd_weight * rnd_error
+            rnd_error = np.linalg.norm(ptu.to_numpy(self.rnd_net(observations)) - ptu.to_numpy(self.rnd_target_net(observations)),axis=1)
+            #print(rnd_error)
+            assert rnd_error.shape == rewards.shape
+            rewards = rewards + self.rnd_weight * ptu.from_numpy(rnd_error)
 
+        ## update the big network
         metrics = super().update(observations, actions, rewards, next_observations, dones, step)
 
         # Update the RND network.
